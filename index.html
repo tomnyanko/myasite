@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>プロジェクター調整プレーヤー</title>
+<style>
+:root{--pbg:rgba(250,250,252,.88);--fg:#16181d;--mut:#5d6370;--line:rgba(0,0,0,.14);--ac:#3ddbc0;--acd:#053a32;--glass:rgba(22,24,30,.62);
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--pbg:rgba(24,26,32,.86);--fg:#f3f4f6;--mut:#9aa1ae;--line:rgba(255,255,255,.14)}}
+:root[data-theme="dark"]{--pbg:rgba(24,26,32,.86);--fg:#f3f4f6;--mut:#9aa1ae;--line:rgba(255,255,255,.14)}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;height:100%;background:#000;color:#fff;font-family:system-ui,"Noto Sans JP","Hiragino Sans",sans-serif;overflow:hidden}
+#stage{position:fixed;inset:0;background:#000;overflow:hidden}
+.media{position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;border:0;background:#000;display:none}
+.media.on{display:block}
+#yt{pointer-events:none}
+#guide{position:absolute;inset:0;display:none;pointer-events:none;border:3px solid #ff453a;box-sizing:border-box;
+background:linear-gradient(to right,rgba(255,255,255,.3) 1px,transparent 1px) 0 0/10% 100%,linear-gradient(to bottom,rgba(255,255,255,.3) 1px,transparent 1px) 0 0/100% 10%}
+#empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(ellipse at 50% 30%,#1c2230,#07080b 70%)}
+.card{width:min(460px,100%);padding:28px;border-radius:24px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);display:grid;gap:14px}
+.card h1{margin:0;font-size:22px;letter-spacing:.02em}
+.card p{margin:0;color:#aab0bd;font-size:13px;line-height:1.7}
+.sep{text-align:center;color:#7d8491;font-size:12px}
+.btn,.ib,.pill,select{font:inherit;color:#fff;border:0;cursor:pointer}
+.primary{background:var(--ac);color:var(--acd);font-weight:700;border-radius:14px;padding:13px 16px;text-align:center;font-size:15px;border:0;cursor:pointer;font-family:inherit}
+.urlrow{display:flex;gap:8px}
+.urlrow input{flex:1;min-width:0;font:inherit;font-size:14px;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.35);color:#fff}
+.urlrow button{border-radius:12px;padding:0 16px;background:rgba(255,255,255,.16);color:#fff;border:0;font:inherit;font-size:14px;cursor:pointer}
+#ui{transition:opacity .3s}
+#ui.hide{opacity:0;pointer-events:none}
+body.idle #stage{cursor:none}
+#dock{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));width:min(920px,calc(100vw - 24px));box-sizing:border-box;padding:10px 16px 10px;border-radius:22px;background:var(--glass);backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4);border:1px solid rgba(255,255,255,.12);box-shadow:0 12px 40px rgba(0,0,0,.45);display:grid;gap:6px}
+.seekrow{display:flex;align-items:center;gap:12px;font-size:12px;font-variant-numeric:tabular-nums;color:#cfd3dc}
+.seekrow input{flex:1}
+.ctrl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.grow{flex:1}
+.ib{width:42px;height:42px;border-radius:50%;background:transparent;display:grid;place-items:center;transition:background .15s}
+.ib:hover{background:rgba(255,255,255,.14)}
+.ib[aria-pressed=true],.ib.on{background:rgba(61,219,192,.25);color:var(--ac)}
+#play{width:48px;height:48px;background:#fff;color:#0b0d12}
+#play:hover{background:#e7eaf0}
+select{background:rgba(255,255,255,.12);border-radius:10px;padding:8px 10px;font-size:13px;height:38px}
+select option{color:#111}
+button:focus-visible,input:focus-visible,select:focus-visible,.primary:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.rng{-webkit-appearance:none;appearance:none;height:5px;border-radius:99px;background:linear-gradient(to right,var(--ac) var(--p,0%),var(--trk,rgba(255,255,255,.25)) var(--p,0%));outline-offset:4px;cursor:pointer}
+.rng::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.5);border:0}
+.rng::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:#fff;border:0}
+#vol{width:84px}
+#panel{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:12px;bottom:148px;width:340px;max-width:calc(100vw - 24px);overflow:auto;box-sizing:border-box;background:var(--pbg);color:var(--fg);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid var(--line);border-radius:20px;padding:18px;display:none;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+#panel.open{display:block}
+#panel .rng{--trk:var(--line)}
+#panel h2{font-size:13px;margin:20px 0 6px;font-weight:700;color:var(--mut)}
+#panel h2:first-child{margin-top:0}
+.row{display:grid;grid-template-columns:40px 1fr 62px;align-items:center;gap:10px;padding:5px 0}
+.row label{font-size:13px;cursor:pointer}
+.row input[type=number]{width:100%;box-sizing:border-box;padding:6px 6px;font:inherit;font-size:13px;background:transparent;color:var(--fg);border:1px solid var(--line);border-radius:8px}
+.opt{display:flex;gap:10px;align-items:center;font-size:13px;padding:6px 0}
+.opt input{accent-color:#14a58f;width:16px;height:16px}
+#panel .urlrow input{background:transparent;color:var(--fg);border-color:var(--line)}
+#panel .urlrow button,.pbtn{background:transparent;color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font:inherit;font-size:13px;cursor:pointer;text-align:center;display:block;margin-top:8px}
+#panel .urlrow button{margin:0}
+#panel p{font-size:12px;color:var(--mut);margin:10px 0 0;line-height:1.7}
+#toast{position:fixed;top:calc(16px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);max-width:min(560px,calc(100vw - 32px));padding:12px 18px;border-radius:14px;background:rgba(255,69,58,.92);color:#fff;font-size:13px;line-height:1.6;display:none;z-index:9}
+</style>
+</head>
+<body>
+<div id="stage">
+  <video id="v" class="media" playsinline></video>
+  <iframe id="yt" class="media" allow="autoplay; encrypted-media; fullscreen" referrerpolicy="strict-origin-when-cross-origin" title="YouTube"></iframe>
+  <div id="guide"></div>
+  <div id="empty"><div class="card">
+    <h1>プロジェクター調整プレーヤー</h1>
+    <p>動画を切り取り・縮小して、プロジェクターの投影範囲にぴったり合わせます。</p>
+    <label class="primary">動画ファイルを開く<input type="file" class="file" accept="video/*" hidden></label>
+    <div class="sep">または</div>
+    <div class="urlrow"><input class="url" placeholder="YouTubeのURLを貼り付け" aria-label="YouTube URL"><button class="go">再生</button></div>
+  </div></div>
+</div>
+<div id="toast" role="alert"></div>
+
+<div id="ui">
+  <aside id="panel" aria-label="調整"></aside>
+  <div id="dock">
+    <div class="seekrow"><span id="t1">0:00</span><input id="seek" class="rng" type="range" min="0" max="1000" value="0" aria-label="シーク"><span id="t2">0:00</span></div>
+    <div class="ctrl">
+      <button class="ib" id="play" aria-label="再生/一時停止"></button>
+      <button class="ib" id="back" data-ic="rew" title="10秒戻る" aria-label="10秒戻る"></button>
+      <button class="ib" id="fwd" data-ic="fwd" title="10秒進む" aria-label="10秒進む"></button>
+      <button class="ib" id="mute" title="ミュート" aria-label="ミュート"></button>
+      <input id="vol" class="rng" type="range" min="0" max="100" value="100" aria-label="音量" style="--p:100%">
+      <span class="grow"></span>
+      <select id="rate" aria-label="再生速度"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
+      <button class="ib" id="loop" data-ic="loop" aria-pressed="false" title="ループ" aria-label="ループ"></button>
+      <button class="ib" id="settings" data-ic="sliders" title="調整パネル" aria-label="調整パネル"></button>
+      <button class="ib" id="fs" title="全画面" aria-label="全画面"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id), v=$('v'), yt=$('yt'), stage=$('stage'), panel=$('panel');
+const IC={play:['f','<path d="M8 5v14l11-7z"/>'],pause:['f','<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>'],
+rew:['s','<path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/><text x="12" y="15.5" font-size="7" text-anchor="middle" fill="currentColor" stroke="none">10</text>'],
+fwd:['s','<path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/><text x="12" y="15.5" font-size="7" text-anchor="middle" fill="currentColor" stroke="none">10</text>'],
+vol:['s','<path d="M4 9v6h4l5 4V5L8 9zM16.5 9a4 4 0 0 1 0 6"/>'],mute:['s','<path d="M4 9v6h4l5 4V5L8 9zM17 9l4 6M21 9l-4 6"/>'],
+loop:['s','<path d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4"/>'],
+sliders:['s','<path d="M4 6h8M16 6h4M4 12h3M11 12h9M4 18h9M17 18h3M14 4v4M8 10v4M15 16v4"/>'],
+exp:['s','<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'],min:['s','<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>']};
+const ic=n=>{const [t,p]=IC[n];return `<svg viewBox="0 0 24 24" width="22" height="22" ${t==='f'?'fill="currentColor"':'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'}>${p}</svg>`};
+document.querySelectorAll('[data-ic]').forEach(b=>b.innerHTML=ic(b.dataset.ic));
+const fill=el=>el.style.setProperty('--p',((el.value-el.min)/(el.max-el.min)*100)+'%');
+
+/* settings */
+const DEF={top:0,bottom:0,left:0,right:0,zoom:100,sx:100,sy:100,ox:0,oy:0,fit:false,guide:false};
+let s={...DEF};
+try{Object.assign(s,JSON.parse(localStorage.getItem('pp-settings')||'{}'))}catch(e){}
+const save=()=>{try{localStorage.setItem('pp-settings',JSON.stringify(s))}catch(e){}};
+const GROUPS=[
+ ['切り取り（はみ出し部分をカット）',[['top','上',0,45],['bottom','下',0,45],['left','左',0,45],['right','右',0,45]]],
+ ['拡大・縮小',[['zoom','全体',10,200],['sx','横',30,200],['sy','縦',30,200]]],
+ ['位置',[['ox','左右',-50,50],['oy','上下',-50,50]]]];
+panel.innerHTML=`<h2>ソース</h2>
+<label class="pbtn" style="margin-top:0">動画ファイルを開く<input type="file" class="file" accept="video/*" hidden></label>
+<div class="urlrow" style="margin-top:8px"><input class="url" placeholder="YouTubeのURLを貼り付け" aria-label="YouTube URL"><button class="go">再生</button></div>`;
+const inputs={};
+GROUPS.forEach(([title,items])=>{
+  panel.insertAdjacentHTML('beforeend',`<h2>${title}（%）</h2>`);
+  items.forEach(([k,lab,min,max])=>{
+    const row=document.createElement('div');row.className='row';
+    row.innerHTML=`<label title="ダブルクリックで初期値">${lab}</label><input class="rng" type="range" min="${min}" max="${max}" step="0.1"><input type="number" min="${min}" max="${max}" step="0.1">`;
+    const [l,r,n]=row.children;inputs[k]=[r,n];
+    const set=x=>{x=Math.min(max,Math.max(min,+x||0));s[k]=x;r.value=n.value=+x.toFixed(1);fill(r);layout();save()};
+    r.oninput=()=>set(r.value);n.onchange=()=>set(n.value);l.ondblclick=()=>set(DEF[k]);
+    panel.appendChild(row);
+  });
+});
+panel.insertAdjacentHTML('beforeend',`<h2>表示</h2>
+<label class="opt"><input type="checkbox" id="fit"> 切り取った範囲を画面に合わせる</label>
+<label class="opt"><input type="checkbox" id="guide-cb"> ガイド枠を表示（画面端と10%グリッド）</label>
+<button class="pbtn" id="reset" style="width:100%">すべて初期値に戻す</button>
+<p>項目名をダブルクリックで個別リセット。Space 再生 / F 全画面 / ←→ 5秒移動 / H 調整パネル / M ミュート。設定はこのブラウザに保存されます。</p>`);
+function syncUI(){
+  for(const k in inputs){inputs[k][0].value=inputs[k][1].value=+(+s[k]).toFixed(1);fill(inputs[k][0])}
+  $('fit').checked=s.fit;$('guide-cb').checked=s.guide;$('guide').style.display=s.guide?'block':'none';
+}
+$('fit').onchange=e=>{s.fit=e.target.checked;layout();save()};
+$('guide-cb').onchange=e=>{s.guide=e.target.checked;syncUI();save()};
+$('reset').onclick=()=>{s={...DEF};syncUI();layout();save()};
+
+/* layout */
+let mode='none';
+function layout(){
+  if(mode==='none')return;
+  const e=mode==='yt'?yt:v, sw=stage.clientWidth, sh=stage.clientHeight;
+  const vw=mode==='yt'?1280:(v.videoWidth||1920), vh=mode==='yt'?720:(v.videoHeight||1080);
+  const l=s.left/100,r=s.right/100,t=s.top/100,b=s.bottom/100;
+  const cw=vw*(1-l-r), ch=vh*(1-t-b);
+  const base=s.fit?Math.min(sw/cw,sh/ch):Math.min(sw/vw,sh/vh);
+  const kx=base*s.zoom/100*s.sx/100, ky=base*s.zoom/100*s.sy/100;
+  const cx=vw*(l+(1-l-r)/2), cy=vh*(t+(1-t-b)/2);
+  e.style.width=vw+'px';e.style.height=vh+'px';
+  e.style.clipPath=`inset(${s.top}% ${s.right}% ${s.bottom}% ${s.left}%)`;
+  e.style.transform=`translate(${sw/2+s.ox*sw/100}px,${sh/2+s.oy*sh/100}px) scale(${kx},${ky}) translate(${-cx}px,${-cy}px)`;
+}
+new ResizeObserver(layout).observe(stage);
+v.addEventListener('loadedmetadata',layout);
+function show(m){mode=m;v.classList.toggle('on',m==='file');yt.classList.toggle('on',m==='yt');$('empty').style.display='none';layout();ui()}
+function toast(msg,ms=7000){const t=$('toast');t.textContent=msg;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',ms)}
+
+/* sources */
+let url=null;
+function loadFile(f){
+  if(!f)return;
+  if(url)URL.revokeObjectURL(url);
+  yt.src='about:blank';url=URL.createObjectURL(f);v.src=url;show('file');
+  v.playbackRate=+$('rate').value;v.play().catch(()=>{});
+}
+const ytId=u=>{u=u.trim();const m=u.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([\w-]{11})/)||u.match(/^([\w-]{11})$/);return m&&m[1]};
+const Y={t:0,dur:0,paused:true,muted:false};
+let gotMsg=false,hs,ytTimer;
+function loadYT(text){
+  const id=ytId(text);
+  if(!id){toast('YouTubeのURLを認識できません。動画ページのURLを貼り付けてください。');return}
+  v.pause();v.removeAttribute('src');v.load();
+  Object.assign(Y,{t:0,dur:0,paused:true});gotMsg=false;clearTimeout(ytTimer);
+  yt.src=`https://www.youtube-nocookie.com/embed/${id}?enablejsapi=1&controls=0&rel=0&playsinline=1&iv_load_policy=3&disablekb=1&autoplay=1&origin=${encodeURIComponent(location.origin)}`;
+  show('yt');
+  ytTimer=setTimeout(()=>{if(!gotMsg)toast('YouTubeから応答がありません。この表示環境がYouTubeの埋め込みを許可していない可能性があります。')},8000);
+}
+yt.onload=()=>{
+  if(mode!=='yt')return;let n=0;clearInterval(hs);
+  hs=setInterval(()=>{if(gotMsg||++n>20){clearInterval(hs);return}
+    yt.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),'*')},500);
+};
+const cmd=(f,a=[])=>yt.contentWindow&&yt.contentWindow.postMessage(JSON.stringify({event:'command',func:f,args:a}),'*');
+function setState(st){
+  Y.paused=!(st===1||st===3);
+  if(st===0&&v.loop){cmd('seekTo',[0,true]);cmd('playVideo')}
+}
+addEventListener('message',e=>{
+  if(mode!=='yt'||e.source!==yt.contentWindow)return;
+  let d;try{d=typeof e.data==='string'?JSON.parse(e.data):e.data}catch(_){return}
+  if(!d)return;gotMsg=true;clearTimeout(ytTimer);
+  const i=d.info;
+  if((d.event==='infoDelivery'||d.event==='initialDelivery')&&i){
+    if(i.currentTime!=null)Y.t=i.currentTime;
+    if(i.duration)Y.dur=i.duration;
+    if(i.playerState!=null)setState(i.playerState);
+    if(i.muted!=null){Y.muted=i.muted;icon()}
+    ui();
+  }else if(d.event==='onStateChange'&&typeof i==='number'){setState(i);ui()}
+});
+document.querySelectorAll('.file').forEach(f=>f.onchange=e=>loadFile(e.target.files[0]));
+document.querySelectorAll('.urlrow').forEach(r=>{
+  const inp=r.querySelector('.url'),go=()=>loadYT(inp.value);
+  r.querySelector('.go').onclick=go;inp.onkeydown=e=>{if(e.key==='Enter')go()};
+});
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)loadFile(f);else loadYT(e.dataTransfer.getData('text')||'')});
+addEventListener('paste',e=>{if(/INPUT/.test(e.target.tagName))return;const t=e.clipboardData.getData('text');if(/youtu/.test(t))loadYT(t)});
+
+/* playback (file / YouTube) */
+const fmt=t=>{t=Math.max(0,Math.floor(t||0));return Math.floor(t/60)+':'+String(t%60).padStart(2,'0')};
+const cur=()=>mode==='yt'?Y:{t:v.currentTime,dur:v.duration,paused:v.paused};
+function ui(){
+  const c=cur();$('seek').value=c.dur?c.t/c.dur*1000:0;fill($('seek'));
+  $('t1').textContent=fmt(c.t);$('t2').textContent=fmt(c.dur);$('play').innerHTML=ic(c.paused?'play':'pause');
+}
+function icon(){const m=mode==='yt'?Y.muted:(v.muted||v.volume===0);$('mute').innerHTML=ic(m?'mute':'vol')}
+const seekTo=t=>{t=Math.max(0,t);if(mode==='yt'){cmd('seekTo',[t,true]);Y.t=t;ui()}else v.currentTime=t};
+const toggle=()=>{if(mode==='none')return;if(cur().paused){mode==='yt'?cmd('playVideo'):v.play()}else{mode==='yt'?cmd('pauseVideo'):v.pause()}};
+$('play').onclick=toggle;
+$('back').onclick=()=>seekTo(cur().t-10);
+$('fwd').onclick=()=>seekTo(cur().t+10);
+v.onplay=v.onpause=v.ontimeupdate=v.onloadedmetadata=()=>mode==='file'&&ui();
+$('seek').oninput=e=>{fill(e.target);const d=cur().dur;if(d)seekTo(e.target.value/1000*d)};
+$('vol').oninput=e=>{fill(e.target);const x=e.target.value;v.volume=x/100;v.muted=false;if(mode==='yt'){cmd('setVolume',[+x]);cmd('unMute');Y.muted=false}icon()};
+$('mute').onclick=()=>{if(mode==='yt'){Y.muted=!Y.muted;cmd(Y.muted?'mute':'unMute')}else v.muted=!v.muted;icon()};
+$('rate').onchange=e=>{v.playbackRate=+e.target.value;if(mode==='yt')cmd('setPlaybackRate',[+e.target.value])};
+$('loop').onclick=e=>{v.loop=!v.loop;e.currentTarget.setAttribute('aria-pressed',v.loop)};
+$('settings').onclick=()=>panel.classList.toggle('open');
+
+/* fullscreen */
+function fs(){
+  if(document.fullscreenElement){document.exitFullscreen();return}
+  const el=document.documentElement,p=el.requestFullscreen?el.requestFullscreen():Promise.reject();
+  p.catch(()=>toast('この表示では全画面にできません。リンクを新しいタブで直接開いてからお試しください。'));
+}
+$('fs').onclick=fs;stage.ondblclick=fs;
+document.addEventListener('fullscreenchange',()=>{$('fs').innerHTML=ic(document.fullscreenElement?'min':'exp');layout();wake()});
+
+/* auto-hide UI in fullscreen */
+let timer;
+function wake(){
+  $('ui').classList.remove('hide');document.body.classList.remove('idle');clearTimeout(timer);
+  timer=setTimeout(()=>{if(document.fullscreenElement&&!$('ui').matches(':hover')){$('ui').classList.add('hide');document.body.classList.add('idle')}},3000);
+}
+['pointermove','pointerdown','keydown','touchstart'].forEach(ev=>addEventListener(ev,wake,{passive:true}));
+
+/* keys */
+addEventListener('click',e=>{const b=e.target.closest('button');if(b)b.blur()});
+addEventListener('keydown',e=>{
+  if(/INPUT|SELECT|BUTTON/.test(e.target.tagName))return;
+  const k=e.key.toLowerCase();
+  if(k===' '){e.preventDefault();toggle()}
+  else if(k==='f')fs();
+  else if(k==='m')$('mute').click();
+  else if(k==='h')panel.classList.toggle('open');
+  else if(k==='arrowleft')seekTo(cur().t-5);
+  else if(k==='arrowright')seekTo(cur().t+5);
+});
+syncUI();icon();ui();wake();$('fs').innerHTML=ic('exp');
+</script>
+</body>
+</html>
